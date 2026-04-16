@@ -65,32 +65,41 @@ class ConfidenceRouter:
         Returns:
             RoutingDecision with routing action and metadata
         """
-        # TODO 12: Implement routing logic
-        #
-        # 1. Check if action_type is in HIGH_RISK_ACTIONS
-        #    -> If yes: always escalate (action="escalate", priority="high",
-        #       requires_human=True, reason="High-risk action: {action_type}")
-        #
-        # 2. Check confidence thresholds:
-        #    - confidence >= 0.9:
-        #      action="auto_send", priority="low",
-        #      requires_human=False, reason="High confidence"
-        #
-        #    - 0.7 <= confidence < 0.9:
-        #      action="queue_review", priority="normal",
-        #      requires_human=True, reason="Medium confidence — needs review"
-        #
-        #    - confidence < 0.7:
-        #      action="escalate", priority="high",
-        #      requires_human=True, reason="Low confidence — escalating"
+        # Check if action is high-risk (always escalate)
+        if action_type in HIGH_RISK_ACTIONS:
+            return RoutingDecision(
+                action="escalate",
+                confidence=confidence,
+                reason=f"High-risk action: {action_type}",
+                priority="high",
+                requires_human=True,
+            )
 
-        return RoutingDecision(
-            action="auto_send",
-            confidence=confidence,
-            reason="TODO: implement routing logic",
-            priority="low",
-            requires_human=False,
-        )  # TODO: Replace with implementation
+        # Route based on confidence thresholds
+        if confidence >= self.HIGH_THRESHOLD:
+            return RoutingDecision(
+                action="auto_send",
+                confidence=confidence,
+                reason="High confidence",
+                priority="low",
+                requires_human=False,
+            )
+        elif confidence >= self.MEDIUM_THRESHOLD:
+            return RoutingDecision(
+                action="queue_review",
+                confidence=confidence,
+                reason="Medium confidence — needs review",
+                priority="normal",
+                requires_human=True,
+            )
+        else:
+            return RoutingDecision(
+                action="escalate",
+                confidence=confidence,
+                reason="Low confidence — escalating",
+                priority="high",
+                requires_human=True,
+            )
 
 
 # ============================================================
@@ -109,27 +118,27 @@ class ConfidenceRouter:
 hitl_decision_points = [
     {
         "id": 1,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "High-Value Money Transfer",
+        "trigger": "Transfer amount exceeds 100,000,000 VND (approximately $4,000 USD) or international wire transfer",
+        "hitl_model": "human-in-the-loop",
+        "context_needed": "Transfer amount, destination account details, customer account history, recent transaction patterns, fraud risk score, customer verification status",
+        "example": "Customer requests to transfer 250,000,000 VND to a new international account they've never sent money to before. The system flags this as high-risk due to amount and new recipient. A human reviewer checks the customer's identity, calls them to confirm the transaction, and verifies the recipient details before approving.",
     },
     {
         "id": 2,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "Sensitive Personal Data Changes",
+        "trigger": "Request to change email, phone number, address, or security questions - especially if multiple changes requested simultaneously",
+        "hitl_model": "human-on-the-loop",
+        "context_needed": "Requested changes, current customer information, login location/IP, device fingerprint, time since last change, authentication method used",
+        "example": "Customer logs in from a new device and requests to change both email and phone number. The AI processes the request but flags it for human review within 24 hours. A human analyst reviews the activity pattern, and if suspicious (e.g., login from unusual location), contacts the customer via their old phone number to verify the changes before they take effect.",
     },
     {
         "id": 3,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "Edge-Case Loan Application",
+        "trigger": "Loan application with unusual characteristics: very high amount relative to income, inconsistent employment history, borderline credit score (680-720), or first-time borrower requesting large amount",
+        "hitl_model": "human-as-tiebreaker",
+        "context_needed": "Loan amount, applicant income and employment history, credit score, debt-to-income ratio, collateral details, AI's confidence score and reasoning, similar approved/rejected cases",
+        "example": "A self-employed applicant with 2 years of business history applies for a 500,000,000 VND business loan. Credit score is 695 (borderline). The AI's automated scoring gives 72% approval confidence - not high enough to auto-approve, not low enough to auto-reject. A human loan officer reviews the business plan, cash flow statements, and makes the final decision based on holistic assessment of business viability.",
     },
 ]
 

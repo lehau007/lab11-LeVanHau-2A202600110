@@ -48,22 +48,38 @@ Day-11-Guardrails-HITL-Responsible-AI/
 3. Save the API key in Colab Secrets as `GOOGLE_API_KEY`
 4. Run cells in order
 
-### Local (Notebook)
+### Local Setup (Recommended)
 
+**Step 1: Set up virtual environment**
+
+Linux/Mac:
 ```bash
-pip install -r requirements.txt
-export GOOGLE_API_KEY="your-api-key-here"
-jupyter notebook notebooks/lab11_guardrails_hitl.ipynb
+./setup_venv.sh
 ```
 
-### Local (Python modules — no Colab needed)
+Windows:
+```bash
+setup_venv.bat
+```
+
+**Step 2: Configure API key**
+
+Edit `.env` file and add your Google API key:
+```
+GOOGLE_API_KEY=your-actual-api-key-here
+```
+
+Get your key at: https://aistudio.google.com/apikey
+
+**Step 3: Run the lab**
 
 ```bash
-cd src/
-pip install -r ../requirements.txt
-export GOOGLE_API_KEY="your-api-key-here"
+# Activate virtual environment
+source venv/bin/activate  # Linux/Mac
+venv\Scripts\activate     # Windows
 
 # Run the full lab
+cd src/
 python main.py
 
 # Or run specific parts

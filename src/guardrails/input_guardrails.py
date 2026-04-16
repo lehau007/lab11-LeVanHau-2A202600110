@@ -10,7 +10,7 @@ from google.genai import types
 from google.adk.plugins import base_plugin
 from google.adk.agents.invocation_context import InvocationContext
 
-from core.config import ALLOWED_TOPICS, BLOCKED_TOPICS
+from src.core.config import ALLOWED_TOPICS, BLOCKED_TOPICS
 
 
 # ============================================================
@@ -38,9 +38,16 @@ def detect_injection(user_input: str) -> bool:
         True if injection detected, False otherwise
     """
     INJECTION_PATTERNS = [
-        # TODO: Add at least 5 regex patterns
-        # Example:
-        # r"ignore (all )?(previous|above) instructions",
+        r"ignore\s+(all\s+)?(previous|above|prior|earlier)\s+(instructions|directives|commands|prompts)",
+        r"(forget|disregard|override|bypass)\s+(your|all|the)\s+(instructions|rules|guidelines|prompts)",
+        r"(you\s+are\s+now|act\s+as|pretend\s+(you\s+are|to\s+be))\s+(DAN|unrestricted|unfiltered)",
+        r"(reveal|show|display|tell\s+me|give\s+me)\s+(your|the)\s+(system\s+prompt|instructions|configuration|config)",
+        r"translate\s+(your|all)\s+(instructions|prompt|system\s+prompt|configuration)",
+        r"(output|format|convert|encode)\s+(as|to|in)\s+(json|xml|yaml|base64|rot13)",
+        r"fill\s+in(\s+the)?\s+(blank|gap)s?.*password",
+        r"(admin|system|root)\s+(password|credential|key|token)",
+        r"api\s+key",
+        r"(confirm|verify)\s+(the|these)\s+(password|credential|key)",
     ]
 
     for pattern in INJECTION_PATTERNS:
@@ -70,12 +77,20 @@ def topic_filter(user_input: str) -> bool:
     """
     input_lower = user_input.lower()
 
-    # TODO: Implement logic:
-    # 1. If input contains any blocked topic -> return True
-    # 2. If input doesn't contain any allowed topic -> return True
-    # 3. Otherwise -> return False (allow)
+    # Check for blocked topics first (immediate reject)
+    for blocked in BLOCKED_TOPICS:
+        if blocked in input_lower:
+            return True  # Block immediately
 
-    pass  # Replace with your implementation
+    # Check if input contains at least one allowed topic
+    has_allowed_topic = False
+    for allowed in ALLOWED_TOPICS:
+        if allowed in input_lower:
+            has_allowed_topic = True
+            break
+
+    # If no allowed topic found, block it (off-topic)
+    return not has_allowed_topic
 
 
 # ============================================================
@@ -123,19 +138,23 @@ class InputGuardrailPlugin(base_plugin.BasePlugin):
 
         Returns:
             None if message is safe (let it through),
-            types.Content if message is blocked (return replacement)
+            Raises ValueError if message should be blocked
         """
         self.total_count += 1
         text = self._extract_text(user_message)
 
-        # TODO: Implement logic:
-        # 1. Call detect_injection(text)
-        #    - If True: increment blocked_count, return self._block_response("...")
-        # 2. Call topic_filter(text)
-        #    - If True: increment blocked_count, return self._block_response("...")
-        # 3. If both are False: return None (let message through)
+        # Check for prompt injection
+        if detect_injection(text):
+            self.blocked_count += 1
+            raise ValueError("Prompt injection detected - request blocked by input guardrail")
 
-        pass  # Replace with your implementation
+        # Check for off-topic or blocked topics
+        if topic_filter(text):
+            self.blocked_count += 1
+            raise ValueError("Off-topic or blocked content - request blocked by input guardrail")
+
+        # Message is safe - let it through
+        return None
 
 
 # ============================================================

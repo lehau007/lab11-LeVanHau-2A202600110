@@ -16,6 +16,8 @@ async def chat_with_agent(agent, runner, user_message: str, session_id=None):
     Returns:
         Tuple of (response_text, session)
     """
+    import asyncio
+    
     user_id = "student"
     app_name = runner.app_name
 
@@ -44,12 +46,23 @@ async def chat_with_agent(agent, runner, user_message: str, session_id=None):
     )
 
     final_response = ""
-    async for event in runner.run_async(
-        user_id=user_id, session_id=session.id, new_message=content
-    ):
-        if hasattr(event, "content") and event.content and event.content.parts:
-            for part in event.content.parts:
-                if hasattr(part, "text") and part.text:
-                    final_response += part.text
+    
+    async def collect_response():
+        nonlocal final_response
+        async for event in runner.run_async(
+            user_id=user_id, session_id=session.id, new_message=content
+        ):
+            if hasattr(event, "content") and event.content and event.content.parts:
+                for part in event.content.parts:
+                    if hasattr(part, "text") and part.text:
+                        final_response += part.text
+    
+    try:
+        # Add timeout to prevent hanging
+        await asyncio.wait_for(collect_response(), timeout=10.0)
+    except asyncio.TimeoutError:
+        # If timeout, return what we have (might be a blocked message)
+        if not final_response:
+            final_response = "Request timed out"
 
     return final_response, session
